@@ -1,10 +1,7 @@
 
-### FutoIn Specification Tools for C++
+### FutoIn EventEmitter for C++
 
-See [**FTN3: FutoIn Interface Definition**](https://futoin.org/docs/ifaces/) for more details.
-
-There is no technology agnostic native interface definition on purpos to provide
-more flexibility in implementations.
+See [**FTN15: Native Event API**](https://specs.futoin.org/final/preview/ftn15_native_event.html) for more details.
 
 
 **WORK IN PROGRESS**

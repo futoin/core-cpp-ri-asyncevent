@@ -51,7 +51,7 @@ file(GLOB_RECURSE FUTOIN_ASYNCEVENT_SRC
 add_library(${PROJECT_NAME} ${FUTOIN_ASYNCEVENT_SRC})
 add_library(futoin::asyncevent ALIAS ${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC futoin::api)
+target_link_libraries(${PROJECT_NAME} PUBLIC futoin::api futoin::asyncsteps)
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include
@@ -84,14 +84,16 @@ if (FUTOIN_WITH_TESTS)
     enable_testing()
 
     #---
-    add_executable(RIAsyncEventTest
-        tests/main.test.cpp
+    set(PROJECT_TEST_NAME RIAsyncEventTest)
+    file(GLOB_RECURSE PROJECT_TEST_SRC
+        ${CMAKE_CURRENT_LIST_DIR}/tests/*.test.?pp
     )
+    add_executable(${PROJECT_TEST_NAME} ${PROJECT_TEST_SRC})
 
-    target_link_libraries(RIAsyncEventTest
+    target_link_libraries(${PROJECT_TEST_NAME}
         PRIVATE ${PROJECT_NAME} Boost::unit_test_framework)
 
-    add_test(RIAsyncEvent RIAsyncEventTest)
+    add_test(RIAsyncEvent ${PROJECT_TEST_NAME})
 endif()
 
 #--------------------------------------
@@ -105,8 +107,6 @@ if (FUTOIN_WITH_TESTS)
     )
     set(LINT_SRC_FILES ${ALL_SRC_FILES})
     
-    get_target_property(BOOST_INC_DIRS "Boost::boost" INTERFACE_INCLUDE_DIRECTORIES)
-    
     #---
     add_custom_target(
         clangtidy-${PROJECT_NAME} ALL
@@ -115,11 +115,13 @@ if (FUTOIN_WITH_TESTS)
         -warnings-as-errors=*
         -quiet
         -format-style=file
-        ${LINT_SRC_FILES}
+        -header-filter=${CMAKE_CURRENT_LIST_DIR}/include
+        `echo
+        $<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},SOURCES>,\ >
+        $<JOIN:$<TARGET_PROPERTY:${PROJECT_TEST_NAME},SOURCES>,\ >
         --
-        -std=c++11
-        -I${CMAKE_CURRENT_LIST_DIR}/include/
-        -I${CMAKE_CURRENT_LIST_DIR}/../core-cpp-api/include/
+        $<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},COMPILE_OPTIONS>,\ >
+        -I$<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>,\ -I>`
     )
     
     add_custom_target(
@@ -127,7 +129,9 @@ if (FUTOIN_WITH_TESTS)
         COMMAND /usr/bin/clang-format-6.0
         -style=file
         -i
-        ${ALL_SRC_FILES}
+        `echo
+        $<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},SOURCES>,\ >
+        $<JOIN:$<TARGET_PROPERTY:${PROJECT_TEST_NAME},SOURCES>,\ >`
     )
 endif()
 
