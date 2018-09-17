@@ -1,6 +1,6 @@
 {
   "name": "futoin/core-cpp-ri-asyncevent",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "vcs": "git",
   "plugins": {
     "release": "futoin.cid.misc.releasetool"
