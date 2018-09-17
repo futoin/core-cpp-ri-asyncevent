@@ -18,14 +18,17 @@
 #include <futoin/fatalmsg.hpp>
 #include <futoin/ri/eventemitter.hpp>
 //---
+#include <cassert>
+#include <deque>
 #include <future>
-#include <vector>
+#include <limits>
 
 namespace futoin {
     namespace ri {
         struct EventEmitter::Impl
         {
-            Impl(IAsyncTool& async_tool) noexcept : async_tool(async_tool) {}
+            using Listeners = std::deque<EventHandler*>;
+            using ListenerSize = std::uint16_t;
 
             struct EventInfo
             {
@@ -44,10 +47,77 @@ namespace futoin {
                 EventID event_id;
                 TestCast test_cast;
                 const NextArgs* model_args;
+                Listeners listeners;
+                Listeners once;
+                ListenerSize once_next{0};
+                ListenerSize pending{0};
                 bool in_process{false};
-                std::vector<EventHandler*> listeners;
-                std::vector<EventHandler*> once;
             };
+
+            struct EmitTask
+            {
+                EmitTask(EventInfo& ei, NextArgs&& args) noexcept :
+                    listeners_count(ei.listeners.size()),
+                    once_count(ei.once_next),
+                    args(std::forward<NextArgs>(args)),
+                    event_info(ei)
+                {
+                    ei.once_next = 0;
+                }
+
+                void operator()() noexcept
+                {
+                    event_info.in_process = true;
+
+                    // NOTE: iterators get invalidated!
+
+                    // Run through persistent listeners
+                    auto& listeners = event_info.listeners;
+
+                    for (ListenerSize i = 0; i < listeners_count; ++i) {
+                        auto hp = listeners[i];
+
+                        if (hp != nullptr) {
+                            (*hp)(args);
+                        }
+                    }
+
+                    // Process once
+                    if (once_count > 0) {
+                        auto& once = event_info.once;
+
+                        for (ListenerSize i = 0; i < once_count; ++i) {
+                            auto hp = once[i];
+
+                            if (hp != nullptr) {
+                                Accessor::event_id(*hp) = NO_EVENT_ID;
+                                (*hp)(args);
+                            }
+                        }
+
+                        // Leave new handlers appeared after this call
+                        once.erase(once.begin(), once.begin() + once_count);
+                    }
+
+                    //---
+                    --(event_info.pending);
+                    event_info.in_process = false;
+                }
+
+                const ListenerSize listeners_count;
+                const ListenerSize once_count;
+                const NextArgs args;
+                EventInfo& event_info;
+            };
+
+            Impl(IAsyncTool& async_tool) noexcept : async_tool(async_tool) {}
+            ~Impl() noexcept
+            {
+                if (!tasks.empty()) {
+                    FatalMsg()
+                            << "EventEmitter destruction with pending tasks!";
+                }
+            }
 
             EventInfo& get_event_info(
                     EventEmitter& ee, const EventType& et) noexcept
@@ -93,60 +163,35 @@ namespace futoin {
                 return ei;
             }
 
-            void call_listeners(
-                    EventInfo& ei, const NextArgs& args = no_args) noexcept
+            void call_listeners(EventInfo& ei, NextArgs&& args = {}) noexcept
             {
                 if (ei.in_process) {
                     FatalMsg() << "emit() recursion for: " << ei.name;
                 }
 
-                ei.in_process = true;
-
-                auto& listeners = ei.listeners;
-                auto& once = ei.once;
-
-                // NOTE: the listeners and once vector MAY change during
-                // execution!
-                const auto listener_size = listeners.size();
-                const auto once_size = once.size();
-
-                // Run through persistent listeners
-                for (std::size_t i = 0; i < listener_size; ++i) {
-                    auto hp = listeners[i];
-
-                    if (hp != nullptr) {
-                        (*hp)(args);
-                    }
+                if (ei.listeners.empty() && ei.once.empty()) {
+                    return;
                 }
 
-                // Process once
-                for (std::size_t i = 0; i < once_size; ++i) {
-                    auto hp = once[i];
+                assert(ei.pending != std::numeric_limits<ListenerSize>::max());
 
-                    if (hp != nullptr) {
-                        Accessor::event_id(*hp) = NO_EVENT_ID;
-                        (*hp)(args);
-                    }
-                }
+                ++(ei.pending);
 
-                if (once_size == once.size()) {
-                    once.clear();
-                } else {
-                    // Leave new handlers appeared after this call
-                    once.erase(once.begin(), once.begin() + once_size);
-                }
+                tasks.emplace_back(ei, std::forward<NextArgs>(args));
+                async_tool.immediate(std::ref(*this));
+            }
 
-                //---
-                ei.in_process = false;
+            void operator()() noexcept
+            {
+                tasks.front()();
+                tasks.pop_front();
             }
 
             IAsyncTool& async_tool;
             SizeType max_listeners{8};
-            std::vector<EventInfo> events;
-            static const NextArgs no_args;
+            std::deque<EventInfo> events;
+            std::deque<EmitTask> tasks;
         };
-
-        const EventEmitter::NextArgs EventEmitter::Impl::no_args;
 
         EventEmitter::EventEmitter(IAsyncTool& async_tool) noexcept :
             impl_(new Impl(async_tool))
@@ -208,7 +253,7 @@ namespace futoin {
             auto& ei = impl_->process_new_handler(*this, event, handler);
             auto& listeners = ei.listeners;
 
-            if (!ei.in_process) {
+            if (ei.pending == 0) {
                 for (auto& hp : listeners) {
                     if (hp == nullptr) {
                         hp = &handler;
@@ -216,6 +261,9 @@ namespace futoin {
                     }
                 }
             }
+
+            assert(listeners.size()
+                   != std::numeric_limits<Impl::ListenerSize>::max());
 
             if (listeners.size() == impl_->max_listeners) {
                 FatalMsgHook::stream()
@@ -234,6 +282,9 @@ namespace futoin {
             auto& ei = impl_->process_new_handler(*this, event, handler);
             auto& once = ei.once;
 
+            assert(once.size()
+                   != std::numeric_limits<Impl::ListenerSize>::max());
+
             if (once.size() == impl_->max_listeners) {
                 FatalMsgHook::stream()
                         << "WARN: reached max event once listeners: " << ei.name
@@ -241,6 +292,7 @@ namespace futoin {
             }
 
             once.emplace_back(&handler);
+            ++(ei.once_next);
         }
 
         void EventEmitter::off(
@@ -295,7 +347,7 @@ namespace futoin {
 
             auto& ei = impl_->get_event_info(*this, event);
             ei.test_cast(args);
-            impl_->call_listeners(ei, args);
+            impl_->call_listeners(ei, std::forward<NextArgs>(args));
         }
     } // namespace ri
 } // namespace futoin
