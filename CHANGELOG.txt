@@ -1,3 +1,6 @@
 
+=== (next) ===
+CHANGED: updated to the latest Hunter
+
 === 1.0.0 (2018-09-17) ===
 NEW: initial release
