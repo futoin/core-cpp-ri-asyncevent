@@ -33,7 +33,7 @@ namespace futoin {
         /**
          * @brief Implementation of async EventEmitter
          */
-        class EventEmitter : public IEventEmitter
+        class EventEmitter : virtual public IEventEmitter
         {
         public:
             static void setMaxListeners(
