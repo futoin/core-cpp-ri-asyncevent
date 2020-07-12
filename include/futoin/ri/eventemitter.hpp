@@ -41,12 +41,10 @@ namespace futoin {
 
             void on(const EventType& event,
                     EventHandler& handler) noexcept override;
-            void once(
-                    const EventType& event,
-                    EventHandler& handler) noexcept override;
-            void off(
-                    const EventType& event,
-                    EventHandler& handler) noexcept override;
+            void once(const EventType& event, EventHandler& handler) noexcept
+                    override;
+            void off(const EventType& event, EventHandler& handler) noexcept
+                    override;
             void emit(const EventType& event) noexcept override;
             void emit(
                     const EventType& event, NextArgs&& args) noexcept override;

@@ -3,6 +3,7 @@
 CHANGED: updated to the latest Hunter
 CHANGED: to disable tests & docs by default
 CHANGED: IEventEmitter to be a virtual base
+CHANGED: upgraded clang-format/clang-tidy to v10
 
 === 1.0.0 (2018-09-17) ===
 NEW: initial release
