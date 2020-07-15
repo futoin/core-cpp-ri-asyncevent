@@ -14,6 +14,7 @@ HunterGate(
 
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_LIST_DIR)
     add_subdirectory(../core-cpp-api ${CMAKE_BINARY_DIR}/futoin_api EXCLUDE_FROM_ALL)
+    add_subdirectory(../core-cpp-ri-asyncsteps ${CMAKE_BINARY_DIR}/futoin_asyncsteps EXCLUDE_FROM_ALL)
 endif()
 
 #--------------------------------------
@@ -41,22 +42,28 @@ endif()
 
 # Sources
 #-----
-file(GLOB_RECURSE FUTOIN_ASYNCEVENT_SRC
+file(GLOB_RECURSE PROJECT_HDR
     ${CMAKE_CURRENT_LIST_DIR}/include/*.?pp
+)
+file(GLOB_RECURSE PROJECT_SRC
     ${CMAKE_CURRENT_LIST_DIR}/src/*.?pp
 )
 
 # Result objects
 #-----
-add_library(${PROJECT_NAME} ${FUTOIN_ASYNCEVENT_SRC})
+add_library(${PROJECT_NAME} ${PROJECT_SRC})
 add_library(futoin::asyncevent ALIAS ${PROJECT_NAME})
+target_sources(${PROJECT_NAME} PUBLIC ${PROJECT_HDR})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC futoin::api futoin::asyncsteps)
+target_link_libraries(
+    ${PROJECT_NAME}
+    PUBLIC futoin::api futoin::asyncsteps)
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include
     PRIVATE Boost::boost
 )
+
 # since CMake 3.8
 #target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11 )
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -80,7 +87,7 @@ endif()
 #--------------------------------------
 if (FUTOIN_WITH_TESTS)
     include(CTest)
-    
+
     enable_testing()
 
     #---
@@ -89,10 +96,19 @@ if (FUTOIN_WITH_TESTS)
         ${CMAKE_CURRENT_LIST_DIR}/tests/*.test.?pp
     )
     add_executable(${PROJECT_TEST_NAME} ${PROJECT_TEST_SRC})
+    
+    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANG)
+        target_compile_options(${PROJECT_TEST_NAME} PRIVATE
+            # see target_compile_features
+            -std=c++11
+            -Wall
+            -Wextra
+            -Werror
+        )
+    endif()
 
     target_link_libraries(${PROJECT_TEST_NAME}
         PRIVATE ${PROJECT_NAME} Boost::unit_test_framework)
-
     add_test(${PROJECT_NAME} ${PROJECT_TEST_NAME})
 endif()
 
@@ -100,27 +116,19 @@ endif()
 # Static analysis & formatting
 #--------------------------------------
 if (FUTOIN_WITH_TESTS)
-    file(GLOB_RECURSE ALL_SRC_FILES
-        ${CMAKE_CURRENT_LIST_DIR}/include/*.?pp
-        ${CMAKE_CURRENT_LIST_DIR}/src/*.?pp
-        ${CMAKE_CURRENT_LIST_DIR}/tests/*.cpp
-    )
-    set(LINT_SRC_FILES ${ALL_SRC_FILES})
-    
     #---
     add_custom_target(
         clangtidy-${PROJECT_NAME} ALL
         COMMAND /usr/bin/clang-tidy-10
         -quiet
-        -header-filter=${CMAKE_CURRENT_LIST_DIR}/include
-        `echo
-        $<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},SOURCES>,\ >
-        $<JOIN:$<TARGET_PROPERTY:${PROJECT_TEST_NAME},SOURCES>,\ >
+        ${PROJECT_SRC}
         --
+        `echo
         $<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},COMPILE_OPTIONS>,\ >
         -I$<JOIN:$<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>,\ -I>`
+        -DFUTOIN_IN_CLANG_TIDY
     )
-    
+
     add_custom_target(
         clangformat-${PROJECT_NAME} ALL
         COMMAND /usr/bin/clang-format-10
@@ -137,7 +145,7 @@ endif()
 #--------------------------------------
 if (FUTOIN_WITH_DOCS)
     find_package(Doxygen REQUIRED dot)
-    
+
     add_custom_target(
         docs-${PROJECT_NAME} ALL
         COMMAND ${CMAKE_COMMAND} -E env "BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}" ${DOXYGEN_EXECUTABLE}

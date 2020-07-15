@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(stress) // NOLINT
 
         std::function<void(int)> simple;
         std::function<void(int)> once_add;
-        static void once() noexcept {}
+        static void once() {}
         std::function<void()> emit;
     };
 
