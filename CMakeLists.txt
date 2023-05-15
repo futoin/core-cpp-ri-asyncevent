@@ -23,7 +23,7 @@ endif()
 #--------------------------------------
 
 project(futoin_asyncevent
-        VERSION "1.0.1" # AUTO-REPLACE
+        VERSION "1.0.2" # AUTO-REPLACE
         LANGUAGES CXX)
 
 # Options
