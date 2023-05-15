@@ -1,3 +1,5 @@
+=== (next) ===
+CHANGED: dependency maintenance
 
 === 1.0.1 (2023-03-29) ===
 CHANGED: updated to the latest Hunter
