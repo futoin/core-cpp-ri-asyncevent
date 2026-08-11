@@ -1,4 +1,4 @@
-=== (next) ===
+=== 1.0.3 (2026-08-11) ===
 CHANGED: dependency maintenance
 FIXED: clang 19 and C++20 compatibility
 
