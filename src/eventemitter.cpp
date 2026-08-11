@@ -126,7 +126,7 @@ namespace futoin {
 
                 if (event_id == NO_EVENT_ID) {
                     // Slow path
-                    futoin::string name{Accessor::raw_event_type(et)};
+                    const futoin::string name{Accessor::raw_event_type(et)};
 
                     for (auto& er : events) {
                         if (er.name == name) {
@@ -194,7 +194,7 @@ namespace futoin {
         };
 
         EventEmitter::EventEmitter(IAsyncTool& async_tool) noexcept :
-            impl_(new Impl(async_tool))
+            impl_(new(std::nothrow) Impl(async_tool))
         {}
 
         EventEmitter::~EventEmitter() noexcept = default;
@@ -268,7 +268,7 @@ namespace futoin {
             if (listeners.size() == impl_->max_listeners) {
                 FatalMsgHook::stream()
                         << "WARN: reached max event listeners: " << ei.name
-                        << std::endl;
+                        << "\n";
             }
 
             listeners.emplace_back(&handler);
@@ -288,7 +288,7 @@ namespace futoin {
             if (once.size() == impl_->max_listeners) {
                 FatalMsgHook::stream()
                         << "WARN: reached max event once listeners: " << ei.name
-                        << std::endl;
+                        << "\n";
             }
 
             once.emplace_back(&handler);
