@@ -22,7 +22,7 @@ All-in-one FutoIn Core C++:
 
 #### Usage
 
-Please check [FutoIn C++ API][https://github.com/futoin/core-cpp-api]
+Please check [FutoIn Core C++ API][https://codeberg.org/futoin/core-cpp-api]
 for example of usage.
 
 ```cpp
