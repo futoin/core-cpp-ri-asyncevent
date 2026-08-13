@@ -25,6 +25,9 @@
 
 namespace futoin {
     namespace ri {
+        /**
+         * @private
+         */
         struct EventEmitter::Impl
         {
             using Listeners = std::deque<EventHandler*>;
