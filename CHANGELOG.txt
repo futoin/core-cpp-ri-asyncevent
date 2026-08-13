@@ -1,4 +1,4 @@
-=== (next) ===
+=== 1.0.4 (2026-08-13) ===
 CHANGED: updated to FutoIn Public license
 NEW: support for -fno-exceptions with FUTOIN_WITH_EXC=OFF
 
